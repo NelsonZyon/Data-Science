@@ -1,0 +1,30 @@
+import requests
+import csv
+from bs4 import BeautifulSoup
+
+
+f = csv.writer(open('resultado_web_scraping.csv', 'w'))
+f.writerow(['Nome', 'Link'])
+
+paginas = []
+
+for i in range(1, 5):
+    url = 'https://web.archive.org/web/20121007172955/https://www.nga.gov/collection/anZ' + str(i) + '.htm'
+    paginas.append(url)
+
+
+for item in paginas:
+    pagina = requests.get(item)
+    sopa = BeautifulSoup(pagina.text, 'html.parser')
+
+    last_links = sopa.find(class_='AlphaNav')
+    last_links.decompose()
+
+    lista_nomes = sopa.find(class_='BodyText')
+    lista_nomes_items = lista_nomes.find_all('a')
+
+    for nome_artista in lista_nomes_items:
+        nomes = nome_artista.contents[0]
+        links = 'https://web.archive.org' + nome_artista.get('href')
+
+        f.writerow([nomes, links])
