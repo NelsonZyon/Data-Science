@@ -18,7 +18,7 @@ for item in paginas:
     sopa = BeautifulSoup(pagina.text, 'html.parser')
 
     last_links = sopa.find(class_='AlphaNav')
-    last_links.decompose()
+    last_links.decompose()):
 
     lista_nomes = sopa.find(class_='BodyText')
     lista_nomes_items = lista_nomes.find_all('a')
