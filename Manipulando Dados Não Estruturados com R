@@ -1,0 +1,110 @@
+#INSTALAÇÃO DE PACOTES E CHAMADA DAS BIBLIOTECAS QUE SERÃO UTILIZADAS
+
+install.packages("curl")
+install.packages("pdftools")
+library(pdftools)
+library(stringr)
+library(dplyr)
+library(NLP)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(ggplot2)
+
+
+#CHAMADA DO ARQUIVO PDF 
+arquivo_pdf <- ("/home/nelson/Documents/R Scripts/Minerar_Dados_Nao_Estruturados_PDF/relatorio_nos_e_as_desigualdades_datafolha_2019.pdf")
+
+# CRIAÇÃO DE OBJETO COM O ARQUIVO PDF
+pdf_obj <- pdf_text(arquivo_pdf)
+
+#FUNÇÃO PARA VISUALIZAR O OBJETO LIVRE DE ESTRUTURA DE VETOR
+cat(pdf_obj)
+
+
+###### BLOCO CRIADO PARA COLOCAR TODAS AS PÁGINAS DO PDF EM UM ÚNICO NÍVEL DE STRING #####
+dados_texto <- ""
+
+for (i in 1:36) {
+  if(!is.null(dados_texto[i])){
+    dados_texto <- paste(dados_texto,pdf_obj[i], sep="\n")
+  }
+}
+
+dados_texto
+##########################################################################################
+
+################## BLOCO DE SEPARAÇÃO DO TEXTO EM LINHAS EM POSIÇÃO DE VETOR ###########
+tabela_texto <- dados_texto %>%
+  str_split("\n") %>%
+  .[[1]] # UTILIZADO PARA O RETORNO PODER ESTAR NO MESMO NÍVEL E NÃO EM LISTA E SUBLISTA
+print(tabela_texto)
+
+
+database_manipula <- tabela_texto %>%
+  as_data_frame() %>%
+  rename(Linhas = value)
+print(database_manipula)
+
+# RETIRAR LINHAS EM BRANCO DA TIBBLE CRIADA
+database_manipula <- database_manipula %>% select(Linhas) %>%
+  filter(!Linhas == " ")
+
+
+
+##################################################################
+
+################## BLOCO DE TRANSFORMAÇÃO DE DADOS / TEXTO  ################
+
+corpo_texto <- Corpus(VectorSource(database_manipula))
+length(corpo_texto)
+inspect(corpo_texto)
+
+# TRANSFORMAÇÃO DE CAPITALIZAÇÃO DOS TOKENS
+corpo_texto <- tm_map(corpo_texto, content_transformer(tolower))
+
+# REMOVE PONTUAÇÕES
+corpo_texto <- tm_map(corpo_texto, removePunctuation)
+
+#  REMOVE NUMEROS
+corpo_texto <- tm_map(corpo_texto, removeNumbers)
+
+# ELEMINA STOPWORDS
+corpo_texto <- tm_map(corpo_texto, removeWords, stopwords('portuguese'))
+
+# REDUZA AO RADICA
+corpo_texto <- tm_map(corpo_texto, stemDocument)
+
+# REPRESENTAÇÃO DE FREQUENCIA DE TERMOS
+tf <- TermDocumentMatrix(corpo_texto, control = list(minWordLength = 1, minDocFreq = 2))
+length(tf)
+inspect(tf)
+
+# WORD CLOUD
+matriz <- as.matrix(tf)
+
+# CALCULAR A FREQUENCIA DAS PALAVRAS
+vetor <- sort(rowSums(matriz), decreasing = TRUE)
+nomes <- names(vetor)
+minerador <- which(names(vetor) == "miners")
+nomes[minerador] <- "mining"
+dados <- data.frame(word=nomes, freq=vetor)
+
+# NUVEM DE PALAVRAS 
+wordcloud(dados$word, dados$freq, min.freq = 10, colors = brewer.pal(8, "Dark2"))
+
+# SEGUNDO LAYOUT
+wordcloud(dados$word, dados$freq, min.freq = 10,
+          random.order = TRUE, colors = brewer.pal(8,"Dark2"),
+          use.r.layout = TRUE, rot.per = 0.3)
+
+palavras <- dados$word
+frequencia <- dados$freq
+base_de_dados <- data.frame(palavras, frequencia)
+grids <- base_de_dados[1:10,]
+
+# GRAFICO DE BARRAR
+graf_freq <- ggplot(grids, aes(x=palavras, y=frequencia, fill=palavras))+
+                geom_bar(stat = "identity")+
+                  guides(fill = FALSE)
+  graf_freq
